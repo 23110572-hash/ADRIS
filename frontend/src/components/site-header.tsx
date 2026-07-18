@@ -1,6 +1,6 @@
 "use client";
 
-import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignInButton, useAuth, UserButton } from "@clerk/nextjs";
 import { Menu, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,17 +12,16 @@ const navigation = [
 ];
 
 function ClerkControls() {
-  return (
-    <>
-      <SignedOut>
-        <SignInButton mode="modal">
-          <Button variant="ghost" size="sm">Sign in</Button>
-        </SignInButton>
-      </SignedOut>
-      <SignedIn>
-        <UserButton />
-      </SignedIn>
-    </>
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) return null;
+
+  return isSignedIn ? (
+    <UserButton />
+  ) : (
+    <SignInButton mode="modal">
+      <Button variant="ghost" size="sm">Sign in</Button>
+    </SignInButton>
   );
 }
 
