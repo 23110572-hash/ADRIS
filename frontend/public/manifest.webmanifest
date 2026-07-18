@@ -1,0 +1,18 @@
+{
+  "name": "ADRIS — Digital Risk & Investigation Shield",
+  "short_name": "ADRIS",
+  "description": "Citizen-first digital fraud safety and evidence preservation.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8f5",
+  "theme_color": "#0b6b4f",
+  "lang": "en-IN",
+  "scope": "/",
+  "icons": [
+    { "src": "/icons/adris-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Emergency help", "url": "/emergency" },
+    { "name": "Check a message", "url": "/check/message" }
+  ]
+}
