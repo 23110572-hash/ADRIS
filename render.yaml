@@ -5,8 +5,9 @@ services:
     rootDir: backend
     plan: starter
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: alembic upgrade head && gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:$PORT --timeout 120
-    healthCheckPath: /health/ready
+    preDeployCommand: alembic upgrade head
+    startCommand: gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    healthCheckPath: /health/live
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
@@ -21,6 +22,8 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: INCIDENT_TOKEN_SECRET
+        generateValue: true
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
@@ -44,7 +47,7 @@ services:
       - key: JWT_ISSUER
         sync: false
       - key: JWT_AUDIENCE
-        sync: false
+        value: adris-api
       - key: JWKS_URL
         sync: false
       - key: SENTRY_DSN
@@ -67,6 +70,8 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
+        sync: false
+      - key: INCIDENT_TOKEN_SECRET
         sync: false
       - key: GROQ_API_KEY
         sync: false
