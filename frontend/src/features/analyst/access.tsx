@@ -15,7 +15,15 @@ function ClerkSession({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
     const template = process.env.NEXT_PUBLIC_CLERK_JWT_TEMPLATE || "adris-api";
-    getToken({ template }).then(setToken).catch((error: unknown) => setTokenError(error instanceof Error ? error.message : "Could not obtain API token"));
+    getToken({ template })
+      .then((value) => {
+        if (!value) {
+          setTokenError("Clerk returned no API token");
+          return;
+        }
+        setToken(value);
+      })
+      .catch((error: unknown) => setTokenError(error instanceof Error ? error.message : "Could not obtain API token"));
   }, [getToken, isLoaded, isSignedIn]);
   if (!isLoaded) return <div className="grid min-h-64 place-items-center"><LoaderCircle className="size-7 animate-spin text-emerald-800" /></div>;
   if (!isSignedIn) return <Card className="mx-auto max-w-xl"><CardHeader><CardTitle className="flex items-center gap-2"><LockKeyhole className="size-5" /> Analyst sign-in required</CardTitle></CardHeader><CardContent><p className="mb-5 text-sm leading-6 text-slate-600">Protected evidence and review tools require a Clerk account with an ADRIS analyst role and MFA.</p><SignInButton mode="modal"><Button>Sign in with Clerk</Button></SignInButton></CardContent></Card>;
