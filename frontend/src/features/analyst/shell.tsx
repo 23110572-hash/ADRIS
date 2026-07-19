@@ -1,7 +1,7 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { AdrisLogo } from "@/components/adris-logo";
 import { usePathname } from "next/navigation";
 import { Activity, Download, ListChecks, Map, Network, ScanSearch } from "lucide-react";
 import type { ReactNode } from "react";
@@ -21,7 +21,7 @@ export function AnalystShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6">
       <div className="mb-6 flex items-center gap-4">
-        <AdrisLogo size="xl" />
+        <Image src="/logo.png" alt="ADRIS Logo" width={320} height={160} className="h-28 w-auto object-contain" />
         <div className="h-16 w-px bg-slate-200" />
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-800">Protected workspace</p>

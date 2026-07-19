@@ -2,9 +2,9 @@
 
 import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import { Menu } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { AdrisLogo } from "@/components/adris-logo";
 
 const navigation = [
   { href: "/check/message", label: "Check evidence" },
@@ -31,7 +31,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <Link href="/" className="flex items-center" aria-label="ADRIS home">
-          <AdrisLogo size="lg" />
+          <Image src="/logo.png" alt="ADRIS Logo" width={260} height={130} priority className="h-20 w-auto object-contain" />
         </Link>
         <nav className="hidden items-center gap-5 text-sm font-semibold md:flex" aria-label="Primary navigation">
           {navigation.map((item) => <Link key={item.href} href={item.href} className="text-slate-700 transition-colors hover:text-emerald-800">{item.label}</Link>)}
