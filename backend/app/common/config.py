@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_env: Literal["development", "staging", "production", "test"] = "development"
-    frontend_url: str = "http://localhost:3000"
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost/adris"
+    frontend_url: str = ""
+    database_url: str = ""
     database_migration_url: str | None = None
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = ""
 
     groq_api_key: str = ""
     groq_model: str = ""
@@ -49,6 +49,28 @@ class Settings(BaseSettings):
         if value and value.startswith("postgresql://"):
             return value.replace("postgresql://", "postgresql+psycopg://", 1)
         return value
+
+    @model_validator(mode="after")
+    def validate_runtime_config(self) -> "Settings":
+        # DATABASE_URL is mandatory: the app has no working localhost fallback.
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL is not set. Provide the Neon PostgreSQL connection string; "
+                "there is no localhost fallback."
+            )
+        local_markers = ("localhost", "127.0.0.1", "[::1]", "@localhost")
+        if self.app_env == "production":
+            for name, value in (
+                ("DATABASE_URL", self.database_url),
+                ("DATABASE_MIGRATION_URL", self.database_migration_url or ""),
+                ("REDIS_URL", self.redis_url),
+                ("FRONTEND_URL", self.frontend_url),
+            ):
+                if value and any(marker in value for marker in local_markers):
+                    raise ValueError(
+                        f"{name} points to localhost, which is invalid when APP_ENV=production."
+                    )
+        return self
 
     @property
     def cors_origins(self) -> list[str]:

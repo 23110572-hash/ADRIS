@@ -1,6 +1,6 @@
 import type { ZodType } from "zod";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -15,6 +15,9 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   accessToken?: string | null,
 ): Promise<T> {
+  if (!API_URL) {
+    throw new ApiError(0, "NEXT_PUBLIC_API_URL is not configured. Set it to the backend URL in the deployment environment.");
+  }
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
