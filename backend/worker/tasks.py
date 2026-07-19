@@ -508,17 +508,10 @@ def analyze_incident(self, job_id: str) -> dict:
                     unavailable_sources=unavailable,
                 )
                 db.commit()  # make deterministic extraction visible to allowlisted graph queries
-                _progress(db, job, 35, "Running bounded agent workflow")
-                try:
-                    final_state = run_incident_workflow(initial)
-                except Exception as workflow_error:
-                    logger.warning("agent_workflow_degraded", incident_id=str(incident.id), error_type=type(workflow_error).__name__)
-                    final_state = initial.model_copy(
-                        update={
-                            "input_quality": "PASSED" if texts else "UNSUPPORTED",
-                            "unavailable_sources": [*unavailable, "WORKFLOW_EXECUTION_FAILED"],
-                        }
-                    )
+                _progress(db, job, 35, "Running bounded LLM agent workflow")
+                # ADRIS requires the Groq agents. If the LLM workflow fails, the job fails and retries;
+                # no risk assessment is produced without the LLM.
+                final_state = run_incident_workflow(initial)
                 decision = decide_risk(
                     signals=final_state.scam_signals,
                     input_quality=final_state.input_quality,
@@ -608,24 +601,15 @@ def analyze_incident(self, job_id: str) -> dict:
                 )
                 if created or not graph_job.celery_task_id:
                     enqueue_job(db, graph_job)
-                if any(source.startswith("GROQ_") for source in decision.missing_sources) and job.job_type == "AGENT_ANALYSIS":
-                    retry_job, created = create_job(
-                        db,
-                        incident_id=incident.id,
-                        job_type="AGENT_RETRY",
-                        idempotency_key=f"groq-retry:{job.id}",
-                        retry_of_job_id=job.id,
-                        available_at=datetime.now(UTC) + timedelta(minutes=5),
-                        max_attempts=1,
-                    )
-                    if created:
-                        enqueue_job(db, retry_job, countdown=300)
                 _complete(db, job, "Assessment ready")
                 return {"status": "completed", "incident_id": str(incident.id), "risk_band": decision.risk_band}
             except Retry:
                 raise
             except Exception as exc:
-                incident.status = "PROCESSING_DELAYED"
+                # If the LLM analysis cannot complete, retry; once retries are exhausted the incident
+                # ends in a terminal ANALYSIS_FAILED state instead of receiving a non-LLM assessment.
+                retryable = job.attempts < job.max_attempts
+                incident.status = "PROCESSING_DELAYED" if retryable else "ANALYSIS_FAILED"
                 db.commit()
                 return _retry_or_fail(self, db, job, exc, countdown=60)
 

@@ -60,6 +60,17 @@ class Settings(BaseSettings):
             )
         local_markers = ("localhost", "127.0.0.1", "[::1]", "@localhost")
         if self.app_env == "production":
+            # ADRIS requires the Groq LLM agents. There is no non-LLM risk assessment.
+            missing_llm = [
+                name
+                for name, value in (("GROQ_API_KEY", self.groq_api_key), ("GROQ_MODEL", self.groq_model))
+                if not value
+            ]
+            if missing_llm:
+                raise ValueError(
+                    f"Missing required LLM configuration: {', '.join(missing_llm)}. "
+                    "ADRIS performs no risk assessment without the Groq agents."
+                )
             for name, value in (
                 ("DATABASE_URL", self.database_url),
                 ("DATABASE_MIGRATION_URL", self.database_migration_url or ""),

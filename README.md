@@ -239,9 +239,10 @@ agents never follow instructions found inside submitted artifacts.
 | Evidence | Chronology + manifest drafts from deterministic hashes | Invent evidence / guarantee admissibility |
 | Citizen Safety | Convert outcome to clear, templated language | Declare guilt / guarantee safety |
 
-If Groq is unavailable the incident and evidence are preserved, deterministic rules still run,
-fixed emergency guidance is shown, and the result degrades to `CAUTION` or `UNABLE_TO_ASSESS` —
-never a false "no risk".
+The Groq LLM agents are **required**. ADRIS produces no risk assessment without them. If Groq is
+unavailable, the incident and evidence are still preserved, the analysis job fails and is retried,
+and — once retries are exhausted — the incident ends in a terminal `ANALYSIS_FAILED` state rather
+than receiving a non-LLM result. The static emergency page is always available regardless.
 
 ## 10. Deterministic risk-policy engine
 
@@ -342,7 +343,7 @@ admissibility.
 
 | Failure | Behaviour |
 |---|---|
-| Groq unavailable | Deterministic guidance; `CAUTION`/`UNABLE_TO_ASSESS`; bounded async retry |
+| Groq unavailable | Analysis job fails and retries; no non-LLM result. After retries, incident is `ANALYSIS_FAILED`. Static emergency page still works |
 | Redis unavailable | Incident stays safe in Neon; reconciliation requeues after recovery |
 | Worker failure | Mark processing delayed, retain artifacts, retry within policy |
 | S3 upload failure | No evidence claim created; retry; preserve incident metadata |

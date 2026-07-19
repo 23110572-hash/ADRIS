@@ -25,6 +25,9 @@ class PolicyDecision:
 
 
 HIGH_SEVERITY_EXACT_CODES = {"AUTHORIZED_HIGH_SEVERITY_EXACT_MATCH"}
+# Informational gaps that must not, on their own, force a CAUTION band.
+# Coarse location is only used for analyst geo-aggregates, not citizen risk.
+NON_MATERIAL_UNAVAILABLE = {"COARSE_LOCATION_NOT_PROVIDED"}
 
 
 def decide_risk(
@@ -38,28 +41,22 @@ def decide_risk(
     strong = [signal for signal in active if signal.strength == "STRONG" and signal.confidence >= 0.80]
     strong_families = sorted({signal.family for signal in strong})
     reason_codes = list(dict.fromkeys(signal.code for signal in sorted(active, key=lambda item: item.severity, reverse=True)))
-    groq_failed = any(source.startswith("GROQ_") for source in unavailable_sources)
-    workflow_failed = any(source.startswith("WORKFLOW_") for source in unavailable_sources)
+    material_unavailable = [source for source in unavailable_sources if source not in NON_MATERIAL_UNAVAILABLE]
     exact_authorized = any(signal.code in HIGH_SEVERITY_EXACT_CODES for signal in active)
     quality_passed = input_quality == "PASSED"
 
     if input_quality in {"LOW_QUALITY", "UNSUPPORTED"}:
         band = "UNABLE_TO_ASSESS"
         reason_codes = reason_codes or ["INPUT_QUALITY_INSUFFICIENT"]
-    elif workflow_failed and not strong:
-        band = "UNABLE_TO_ASSESS"
-        reason_codes = reason_codes or ["ANALYSIS_WORKFLOW_FAILED"]
     elif exact_authorized and quality_passed and not agent_disagreement:
         band = "HIGH_RISK"
         reason_codes.insert(0, "AUTHORIZED_HIGH_SEVERITY_MATCH")
-    elif len(strong_families) >= 2 and quality_passed and not agent_disagreement and not groq_failed:
+    elif len(strong_families) >= 2 and quality_passed and not agent_disagreement:
         band = "HIGH_RISK"
-    elif strong or input_quality == "PARTIAL" or unavailable_sources or agent_disagreement:
+    elif strong or input_quality == "PARTIAL" or material_unavailable or agent_disagreement:
         band = "CAUTION"
         if agent_disagreement:
             reason_codes.append("AGENT_DISAGREEMENT")
-        if groq_failed:
-            reason_codes.append("AI_ANALYSIS_UNAVAILABLE")
         if input_quality == "PARTIAL":
             reason_codes.append("INCOMPLETE_EVIDENCE")
     elif quality_passed:
@@ -87,7 +84,7 @@ def decide_risk(
             "active_signal_count": len(active),
             "strong_signal_families": strong_families,
             "deterministic_policy": True,
-            "groq_available": not groq_failed,
+            "llm_analysis_required": True,
         },
         missing_sources=list(dict.fromkeys(unavailable_sources)),
         agent_disagreement=agent_disagreement,

@@ -150,17 +150,6 @@ def triage_node(raw_state: IncidentState | dict[str, Any]) -> dict[str, Any]:
     if "TRIAGE" not in state.selected_agents:
         return _skip(state, "TRIAGE")
     run, started = _start_run(state, "TRIAGE", "GROQ")
-    deterministic_codes = {signal.code for signal in state.scam_signals}
-    fallback = TriageOutput(
-        priority="P1_ACTIVE_THREAT" if {"LEGAL_THREAT", "DIGITAL_ARREST_CLAIM"} & deterministic_codes else "P3_STANDARD",
-        suspected_type="DIGITAL_ARREST" if "DIGITAL_ARREST_CLAIM" in deterministic_codes else "UNCLEAR",
-        payment_requested=bool({"PAYMENT_URGENCY", "SAFE_ACCOUNT_TRANSFER"} & deterministic_codes),
-        active_threat="LEGAL_THREAT" in deterministic_codes,
-        isolation_language_detected="SECRECY_ISOLATION" in deterministic_codes,
-        immediate_guidance_required=bool(deterministic_codes),
-        confidence=0.72 if deterministic_codes else 0.35,
-    )
-    unavailable = list(state.unavailable_sources)
     try:
         evidence = "\n".join(f"[extracted_text:{index}] {text}" for index, text in enumerate(state.extracted_text))
         result = structured_groq_call(
@@ -184,18 +173,11 @@ def triage_node(raw_state: IncidentState | dict[str, Any]) -> dict[str, Any]:
             model_name=result.model,
         )
     except Exception as exc:
-        output = fallback
-        unavailable.append("GROQ_TRIAGE_UNAVAILABLE")
-        ref = _finish_run(
-            run,
-            started,
-            status="DEGRADED",
-            output=output.model_dump(mode="json"),
-            error_code=type(exc).__name__,
-        )
+        # ADRIS has no non-LLM triage. Fail the workflow so no assessment is produced without Groq.
+        _finish_run(run, started, status="FAILED", output={"error": "GROQ_TRIAGE_UNAVAILABLE"}, error_code=type(exc).__name__)
+        raise
     return {
         "triage_result": TriageResult.model_validate(output.model_dump()),
-        "unavailable_sources": list(dict.fromkeys(unavailable)),
         "agent_runs": [*state.agent_runs, ref],
     }
 
@@ -227,68 +209,57 @@ def scam_analysis_node(raw_state: IncidentState | dict[str, Any]) -> dict[str, A
     state = _coerce(raw_state)
     if "SCAM_ANALYSIS" not in state.selected_agents:
         return _skip(state, "SCAM_ANALYSIS")
-    use_groq = not any(source.startswith("GROQ_") for source in state.unavailable_sources)
-    run, started = _start_run(state, "SCAM_ANALYSIS", "GROQ" if use_groq else "DETERMINISTIC")
+    run, started = _start_run(state, "SCAM_ANALYSIS", "GROQ")
     signals = list(state.scam_signals)
     disagreement = False
-    unavailable = list(state.unavailable_sources)
-    if use_groq:
-        try:
-            valid_refs = {signal.evidence_reference for signal in signals}
-            valid_refs.update(f"extracted_text:{index}" for index in range(len(state.extracted_text)))
-            evidence = "\n".join(f"[extracted_text:{index}] {text}" for index, text in enumerate(state.extracted_text))
-            result = structured_groq_call(
-                output_model=ScamAnalysisOutput,
-                system_prompt=(
-                    "You are the ADRIS Scam Analysis Agent. Detect only government impersonation, fake digital-arrest claims, "
-                    "urgency, threats, secrecy, isolation, payment coercion, credential requests, and remote-access requests. "
-                    f"Use only these signal codes and their meanings: {json.dumps(ALLOWED_LLM_SIGNALS)}. "
-                    f"Every factual signal must cite one of these evidence references: {sorted(valid_refs)}."
-                ),
-                evidence=evidence,
-                max_tokens=900,
-            )
-            output = result.output
-            assert isinstance(output, ScamAnalysisOutput)
-            existing = {(item.code, item.evidence_reference) for item in signals}
-            for candidate in output.signals:
-                expected_family = ALLOWED_LLM_SIGNALS.get(candidate.code)
-                if expected_family is None or candidate.family != expected_family or candidate.evidence_reference not in valid_refs:
-                    continue
-                if (candidate.code, candidate.evidence_reference) in existing:
-                    continue
-                signals.append(
-                    SignalState(
-                        **candidate.model_dump(),
-                        source="GROQ_STRUCTURED",
-                        agent_run_id=str(run.id),
-                    )
+    try:
+        valid_refs = {signal.evidence_reference for signal in signals}
+        valid_refs.update(f"extracted_text:{index}" for index in range(len(state.extracted_text)))
+        evidence = "\n".join(f"[extracted_text:{index}] {text}" for index, text in enumerate(state.extracted_text))
+        result = structured_groq_call(
+            output_model=ScamAnalysisOutput,
+            system_prompt=(
+                "You are the ADRIS Scam Analysis Agent. Detect only government impersonation, fake digital-arrest claims, "
+                "urgency, threats, secrecy, isolation, payment coercion, credential requests, and remote-access requests. "
+                f"Use only these signal codes and their meanings: {json.dumps(ALLOWED_LLM_SIGNALS)}. "
+                f"Every factual signal must cite one of these evidence references: {sorted(valid_refs)}."
+            ),
+            evidence=evidence,
+            max_tokens=900,
+        )
+        output = result.output
+        assert isinstance(output, ScamAnalysisOutput)
+        existing = {(item.code, item.evidence_reference) for item in signals}
+        for candidate in output.signals:
+            expected_family = ALLOWED_LLM_SIGNALS.get(candidate.code)
+            if expected_family is None or candidate.family != expected_family or candidate.evidence_reference not in valid_refs:
+                continue
+            if (candidate.code, candidate.evidence_reference) in existing:
+                continue
+            signals.append(
+                SignalState(
+                    **candidate.model_dump(),
+                    source="GROQ_STRUCTURED",
+                    agent_run_id=str(run.id),
                 )
-            disagreement = output.disagreement_with_triage
-            ref = _finish_run(
-                run,
-                started,
-                status="COMPLETED",
-                output={"accepted_signal_count": len(signals), "agent_disagreement": disagreement},
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                model_name=result.model,
             )
-        except Exception as exc:
-            unavailable.append("GROQ_SCAM_ANALYSIS_UNAVAILABLE")
-            ref = _finish_run(
-                run,
-                started,
-                status="DEGRADED",
-                output={"deterministic_signal_count": len(signals)},
-                error_code=type(exc).__name__,
-            )
-    else:
-        ref = _finish_run(run, started, status="DEGRADED", output={"deterministic_signal_count": len(signals)}, error_code="GROQ_SKIPPED_AFTER_FAILURE")
+        disagreement = output.disagreement_with_triage
+        ref = _finish_run(
+            run,
+            started,
+            status="COMPLETED",
+            output={"accepted_signal_count": len(signals), "agent_disagreement": disagreement},
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            model_name=result.model,
+        )
+    except Exception as exc:
+        # The Scam Analysis Agent is the core detector. Without Groq there is no assessment.
+        _finish_run(run, started, status="FAILED", output={"error": "GROQ_SCAM_ANALYSIS_UNAVAILABLE"}, error_code=type(exc).__name__)
+        raise
     return {
         "scam_signals": signals,
         "agent_disagreement": disagreement,
-        "unavailable_sources": list(dict.fromkeys(unavailable)),
         "agent_runs": [*state.agent_runs, ref],
     }
 
@@ -395,49 +366,44 @@ def citizen_safety_node(raw_state: IncidentState | dict[str, Any]) -> dict[str, 
     state = _coerce(raw_state)
     if "CITIZEN_SAFETY" not in state.selected_agents:
         return _skip(state, "CITIZEN_SAFETY")
-    use_groq = not any(source.startswith("GROQ_") for source in state.unavailable_sources)
-    run, started = _start_run(state, "CITIZEN_SAFETY", "GROQ" if use_groq else "DETERMINISTIC")
+    run, started = _start_run(state, "CITIZEN_SAFETY", "GROQ")
     explanation = state.proposed_explanation or "Use official channels to verify this request."
-    unavailable = list(state.unavailable_sources)
-    if use_groq:
-        try:
-            result = structured_groq_call(
-                output_model=CitizenSafetyOutput,
-                system_prompt=(
-                    "You are the ADRIS Citizen Safety Agent. Explain the supplied structured outcome plainly and non-accusatorily. "
-                    "Never say an interaction is completely safe, declare anyone guilty, guarantee legitimacy, or replace the fixed actions."
-                ),
-                evidence=json.dumps(
-                    {
-                        "risk_band": state.final_risk_band,
-                        "reason_codes": state.policy_reason_codes,
-                        "coverage": state.policy_coverage,
-                        "fixed_policy_explanation": explanation,
-                    }
-                ),
-                max_tokens=500,
-            )
-            output = result.output
-            assert isinstance(output, CitizenSafetyOutput)
-            if not any(phrase in output.explanation.lower() for phrase in BLOCKED_CITIZEN_PHRASES):
-                explanation = output.explanation
-            ref = _finish_run(
-                run,
-                started,
-                status="COMPLETED",
-                output={"explanation": explanation, "template_actions_retained": True},
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                model_name=result.model,
-            )
-        except Exception as exc:
-            unavailable.append("GROQ_CITIZEN_SAFETY_UNAVAILABLE")
-            ref = _finish_run(run, started, status="DEGRADED", output={"fixed_template_used": True}, error_code=type(exc).__name__)
-    else:
-        ref = _finish_run(run, started, status="DEGRADED", output={"fixed_template_used": True}, error_code="GROQ_SKIPPED_AFTER_FAILURE")
+    try:
+        result = structured_groq_call(
+            output_model=CitizenSafetyOutput,
+            system_prompt=(
+                "You are the ADRIS Citizen Safety Agent. Explain the supplied structured outcome plainly and non-accusatorily. "
+                "Never say an interaction is completely safe, declare anyone guilty, guarantee legitimacy, or replace the fixed actions."
+            ),
+            evidence=json.dumps(
+                {
+                    "risk_band": state.final_risk_band,
+                    "reason_codes": state.policy_reason_codes,
+                    "coverage": state.policy_coverage,
+                    "fixed_policy_explanation": explanation,
+                }
+            ),
+            max_tokens=500,
+        )
+        output = result.output
+        assert isinstance(output, CitizenSafetyOutput)
+        if not any(phrase in output.explanation.lower() for phrase in BLOCKED_CITIZEN_PHRASES):
+            explanation = output.explanation
+        ref = _finish_run(
+            run,
+            started,
+            status="COMPLETED",
+            output={"explanation": explanation, "template_actions_retained": True},
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            model_name=result.model,
+        )
+    except Exception as exc:
+        # The citizen explanation is LLM-generated from reviewed templates; no silent fixed-text fallback.
+        _finish_run(run, started, status="FAILED", output={"error": "GROQ_CITIZEN_SAFETY_UNAVAILABLE"}, error_code=type(exc).__name__)
+        raise
     return {
         "proposed_explanation": explanation,
-        "unavailable_sources": list(dict.fromkeys(unavailable)),
         "agent_runs": [*state.agent_runs, ref],
     }
 
