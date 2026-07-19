@@ -21,8 +21,8 @@ export function AnalystShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6">
       <div className="mb-6 flex items-center gap-4">
-        <Image src="/logo.png" alt="ADRIS Logo" width={100} height={50} className="h-12 w-auto object-contain" />
-        <div className="h-8 w-px bg-slate-200" />
+        <Image src="/logo.png" alt="ADRIS Logo" width={160} height={80} className="h-16 w-auto object-contain" />
+        <div className="h-10 w-px bg-slate-200" />
         <div>
           <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-800">Protected workspace</p>
           <h1 className="text-2xl font-black text-slate-900">Analyst Console</h1>
