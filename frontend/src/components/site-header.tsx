@@ -1,7 +1,8 @@
 "use client";
 
 import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
-import { Menu, ShieldCheck } from "lucide-react";
+import { Menu } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -29,9 +30,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-black tracking-tight" aria-label="ADRIS home">
-          <span className="grid size-9 place-items-center rounded-xl bg-emerald-800 text-white"><ShieldCheck className="size-5" /></span>
-          <span>ADRIS</span>
+        <Link href="/" className="flex items-center" aria-label="ADRIS home">
+          <Image src="/logo.png" alt="ADRIS Logo" width={80} height={40} priority className="h-10 w-auto object-contain" />
         </Link>
         <nav className="hidden items-center gap-5 text-sm font-semibold md:flex" aria-label="Primary navigation">
           {navigation.map((item) => <Link key={item.href} href={item.href} className="text-slate-700 transition-colors hover:text-emerald-800">{item.label}</Link>)}
