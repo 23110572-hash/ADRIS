@@ -15,7 +15,7 @@ export default function HomePage() {
       <section className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.25fr_.75fr] lg:py-24">
         <div>
           <p className="mb-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-900">Citizen-first fraud safety</p>
-          <h1 className="max-w-3xl text-5xl font-black tracking-tight text-slate-950 sm:text-7xl leading-tight">Verify Suspicious Requests & Stay Safe from Fraud.</h1>
+          <h1 className="max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl leading-tight">Verify Suspicious Requests & Stay Safe from Fraud.</h1>
           <p className="mt-6 max-w-2xl text-xl leading-9 text-slate-700">ADRIS checks submitted messages and evidence for coercion, government impersonation, fake “digital arrest” claims, and payment pressure. It preserves what you provide and explains its limits.</p>
           <div className="mt-8 flex flex-wrap gap-4">
             <Link href="/check/message" className="inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-6 py-4 text-lg font-semibold text-white hover:bg-emerald-900">Check suspicious content <ArrowRight className="size-5" /></Link>
