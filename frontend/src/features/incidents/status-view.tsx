@@ -17,7 +17,6 @@ const labels: Record<string, string> = {
   OCR: "Extract text and image metadata",
   TRANSCRIPTION: "Transcribe consented audio",
   AGENT_ANALYSIS: "Run bounded risk analysis",
-  AGENT_RETRY: "Retry unavailable AI analysis",
   GRAPH_ANALYSIS: "Project governed indicator links",
   EVIDENCE_EXPORT: "Generate evidence package",
 };
@@ -40,7 +39,7 @@ export function IncidentStatusView({ incidentId }: { incidentId: string }) {
   const analysisFailed =
     !query.data?.assessment_ready &&
     !active &&
-    jobs.some((job) => job.status === "FAILED" && ["AGENT_ANALYSIS", "AGENT_RETRY"].includes(job.job_type));
+    jobs.some((job) => job.status === "FAILED" && job.job_type === "AGENT_ANALYSIS");
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       {analysisFailed ? (

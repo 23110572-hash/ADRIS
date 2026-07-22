@@ -15,7 +15,6 @@ TASK_BY_JOB_TYPE = {
     "OCR": "worker.tasks.extract_ocr",
     "TRANSCRIPTION": "worker.tasks.transcribe_audio",
     "AGENT_ANALYSIS": "worker.tasks.analyze_incident",
-    "AGENT_RETRY": "worker.tasks.analyze_incident",
     "GRAPH_ANALYSIS": "worker.tasks.project_graph",
     "EVIDENCE_EXPORT": "worker.tasks.generate_export",
 }
@@ -24,7 +23,6 @@ QUEUE_BY_JOB_TYPE = {
     "OCR": "ocr",
     "TRANSCRIPTION": "transcription",
     "AGENT_ANALYSIS": "agent-analysis",
-    "AGENT_RETRY": "agent-analysis",
     "GRAPH_ANALYSIS": "graph-analysis",
     "EVIDENCE_EXPORT": "evidence-export",
 }

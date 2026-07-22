@@ -1,6 +1,4 @@
 import io
-import os
-import tempfile
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -47,32 +45,6 @@ class PaddleOcrProvider:
                 scores.extend(float(value) for value in data.get("rec_scores", []) if value is not None)
         confidence = sum(scores) / len(scores) if scores else 0.0
         return ExtractionResult("\n".join(lines), confidence, "PADDLE_OCR", "3.x")
-
-
-class FasterWhisperProvider:
-    """Lazy optional provider using an immediately deleted temporary file for decoder compatibility."""
-
-    def transcribe(self, content: bytes, suffix: str) -> ExtractionResult:
-        try:
-            from faster_whisper import WhisperModel
-        except ImportError:
-            return ExtractionResult("", 0.0, "FASTER_WHISPER", "unavailable", "TRANSCRIPTION_PROVIDER_NOT_INSTALLED")
-        path = ""
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
-                handle.write(content)
-                path = handle.name
-            model = WhisperModel("small", device="cpu", compute_type="int8")
-            segments, info = model.transcribe(path, vad_filter=True)
-            text = " ".join(segment.text.strip() for segment in segments).strip()
-            confidence = max(0.0, min(1.0, 1.0 - float(getattr(info, "duration_after_vad", 0) == 0)))
-            return ExtractionResult(text, confidence, "FASTER_WHISPER", "1.x")
-        finally:
-            if path:
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
 
 
 class GroqWhisperProvider:
