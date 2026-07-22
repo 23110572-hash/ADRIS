@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
     groq_model: str = ""
+    groq_transcription_model: str = "whisper-large-v3"
 
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
