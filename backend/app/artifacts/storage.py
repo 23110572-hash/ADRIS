@@ -48,6 +48,9 @@ def assert_upload_allowed(submission_type: str, content_type: str, size_bytes: i
 
 
 def _encryption_args() -> dict[str, str]:
+    # S3-compatible providers (e.g. Supabase Storage) reject AWS SSE headers and encrypt at rest themselves.
+    if settings.s3_endpoint_url:
+        return {}
     if settings.aws_kms_key_id:
         return {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": settings.aws_kms_key_id}
     return {"ServerSideEncryption": "AES256"}
@@ -55,10 +58,16 @@ def _encryption_args() -> dict[str, str]:
 
 @lru_cache(maxsize=1)
 def s3_client() -> BaseClient:
+    config_kwargs: dict[str, object] = {"signature_version": "s3v4", "retries": {"max_attempts": 3, "mode": "standard"}}
+    if settings.s3_endpoint_url:
+        # Non-AWS S3 endpoints require path-style addressing (endpoint/bucket/key).
+        config_kwargs["s3"] = {"addressing_style": "path"}
     kwargs: dict[str, object] = {
         "region_name": settings.aws_region,
-        "config": Config(signature_version="s3v4", retries={"max_attempts": 3, "mode": "standard"}),
+        "config": Config(**config_kwargs),
     }
+    if settings.s3_endpoint_url:
+        kwargs["endpoint_url"] = settings.s3_endpoint_url
     if settings.aws_access_key_id and settings.aws_secret_access_key:
         kwargs.update(
             aws_access_key_id=settings.aws_access_key_id,
@@ -97,9 +106,10 @@ def create_presigned_upload(
         "x-amz-meta-incident-id": str(incident_id),
         "x-amz-meta-artifact-id": str(artifact_id),
         "x-amz-meta-schema": "upload-v1",
-        "x-amz-server-side-encryption": params["ServerSideEncryption"],
     }
-    if settings.aws_kms_key_id:
+    if "ServerSideEncryption" in params:
+        headers["x-amz-server-side-encryption"] = params["ServerSideEncryption"]
+    if settings.aws_kms_key_id and not settings.s3_endpoint_url:
         headers["x-amz-server-side-encryption-aws-kms-key-id"] = settings.aws_kms_key_id
     return key, url, headers
 

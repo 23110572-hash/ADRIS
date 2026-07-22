@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "ap-south-1"
+    s3_endpoint_url: str = ""  # Set for S3-compatible providers such as Supabase Storage; leave blank for AWS.
     s3_quarantine_bucket: str = ""
     s3_evidence_bucket: str = ""
     s3_derivatives_bucket: str = ""
