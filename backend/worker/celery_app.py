@@ -1,3 +1,5 @@
+import ssl
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -6,6 +8,11 @@ from app.common.logging import configure_logging
 
 settings = get_settings()
 configure_logging(settings.log_level)
+
+# Managed Redis providers such as Upstash require TLS (rediss://). kombu needs ssl_cert_reqs
+# specified explicitly for both the broker and the result backend or it fails on startup.
+_uses_tls = settings.redis_url.startswith("rediss://")
+_ssl_options = {"ssl_cert_reqs": ssl.CERT_REQUIRED} if _uses_tls else None
 
 celery_app = Celery("adris", broker=settings.redis_url, backend=settings.redis_url, include=["worker.tasks"])
 celery_app.conf.update(
@@ -20,6 +27,8 @@ celery_app.conf.update(
     task_track_started=True,
     result_expires=3600,
     broker_connection_retry_on_startup=True,
+    broker_use_ssl=_ssl_options,
+    redis_backend_use_ssl=_ssl_options,
     task_routes={
         "worker.tasks.validate_artifact": {"queue": "file-validation"},
         "worker.tasks.extract_ocr": {"queue": "ocr"},
