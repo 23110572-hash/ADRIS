@@ -7,7 +7,7 @@ Built for **The Economic Times hackathon — Theme 6: AI for Digital Public Safe
 | | |
 |---|---|
 | Live app (Vercel) | https://adris-beryl.vercel.app |
-| Backend API (Render) | https://adris.onrender.com · docs at `/docs` |
+| Backend API (Render) | https://adris.onrender.com |
 | Source | https://github.com/23110572-hash/ADRIS |
 
 ---
@@ -166,29 +166,5 @@ The design principles that hold it together:
 | **Scalability** | Edge-delivered frontend, stateless API, independently scalable workers, managed Redis, Neon, and direct-to-storage uploads |
 | **User experience** | Instant emergency guidance, a simple installable PWA, multiple evidence types, clear risk bands, and one-tap official reporting |
 
-## 14. Running ADRIS
-
-**Frontend (Vercel):** import the repo, set the root directory to `frontend`, provide `NEXT_PUBLIC_API_URL` (the backend URL) and the Clerk keys, and deploy.
-
-**Backend (Render):** the repo-root `render.yaml` provisions the FastAPI web service and the Celery worker. Both run from `backend/`, install from `requirements.txt`, and pin Python via `backend/.python-version`. Apply migrations with `alembic upgrade head`, then set the environment (database, Redis, Groq, storage, and auth) documented in `backend/.env.example`.
-
-**Local:**
-
-```bash
-# Frontend
-cd frontend && npm ci && npm run dev
-
-# Backend API
-cd backend && python -m venv .venv && .venv\Scripts\activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload
-
-# Worker (needs Redis)
-celery -A worker.celery_app:celery_app worker -B --loglevel=INFO \
-  --queues=file-validation,ocr,transcription,agent-analysis,graph-analysis,evidence-export
-```
-
----
 
 **ADRIS turns the moment of maximum danger — the scammer's call — into the moment we protect the citizen, preserve the evidence, and learn the network.**
