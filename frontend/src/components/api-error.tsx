@@ -9,7 +9,7 @@ export function ApiErrorState({ error, retry }: { error: unknown; retry?: () => 
     <Alert className="border-red-200 bg-red-50 text-red-950">
       <AlertTriangle className="mb-2 size-5" />
       <AlertTitle>Service unavailable</AlertTitle>
-      <AlertDescription>{message} Your evidence and safety should not depend on AI availability.</AlertDescription>
+      <AlertDescription>{message} If this continues, open the emergency guidance for immediate safety steps.</AlertDescription>
       <div className="mt-4 flex flex-wrap gap-2">
         {retry ? <Button type="button" size="sm" variant="outline" onClick={retry}>Try again</Button> : null}
         <Button asChild size="sm" variant="destructive"><Link href="/emergency">Open emergency guidance</Link></Button>
