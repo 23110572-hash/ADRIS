@@ -24,6 +24,16 @@ async def lifespan(_: FastAPI):
     if settings.sentry_dsn:
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.app_env, traces_sample_rate=0.1)
     logger.info("application_started", environment=settings.app_env, version="1.0.0")
+    if settings.inline_task_execution:
+        # No separate Celery worker: process durable jobs in this process and drain any
+        # PENDING backlog left by a previous run/restart so no submission is stranded.
+        try:
+            from app.common.inline_runner import reconcile_pending_jobs
+
+            reconciled = reconcile_pending_jobs()
+            logger.info("inline_task_execution_enabled", reconciled_pending_jobs=reconciled)
+        except Exception:
+            logger.exception("inline_startup_reconcile_failed")
     yield
     engine.dispose()
 

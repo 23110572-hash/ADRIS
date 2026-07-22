@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     max_upload_bytes: int = Field(default=25 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
     presign_ttl_seconds: int = Field(default=600, ge=60, le=3600)
     anonymous_incidents_enabled: bool = True
+    # When true, the API process runs analysis jobs itself in a background thread pool
+    # instead of handing them to a separate Celery worker. This lets the whole pipeline
+    # run on a single service (Option B). Set to false only if you run a dedicated worker.
+    inline_task_execution: bool = True
     agent_timeout_seconds: int = Field(default=30, ge=5, le=120)
     agent_max_steps: int = Field(default=10, ge=1, le=32)
     agent_max_tokens: int = Field(default=1200, ge=128, le=4096)

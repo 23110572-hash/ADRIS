@@ -5,10 +5,12 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.common.config import get_settings
 from app.db.models import AnalysisJob
 from worker.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
+settings = get_settings()
 
 TASK_BY_JOB_TYPE = {
     "FILE_VALIDATION": "worker.tasks.validate_artifact",
@@ -67,6 +69,17 @@ def create_job(
 
 def enqueue_job(db: Session, job: AnalysisJob, *, countdown: int | None = None) -> bool:
     task_name = TASK_BY_JOB_TYPE[job.job_type]
+    if settings.inline_task_execution:
+        # Option B: no separate Celery worker. Run the job in-process in the background.
+        # Imported here to avoid a circular import (inline_runner -> worker.tasks -> jobs).
+        from app.common.inline_runner import submit as submit_inline
+
+        job.celery_task_id = job.celery_task_id or f"inline:{job.id}"
+        job.progress_message = "Queued"
+        job.error_code = None
+        db.commit()
+        submit_inline(task_name, str(job.id), countdown=countdown)
+        return True
     try:
         result = celery_app.send_task(
             task_name,
